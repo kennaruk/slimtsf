@@ -205,6 +205,7 @@ class SlimTSFClassifier:
         -------
         y_pred : np.ndarray, shape (n_cases,)
         """
+        self._check_is_fitted()
         return self.stage3_.predict(self._transform(X))
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
@@ -219,6 +220,7 @@ class SlimTSFClassifier:
         -------
         proba : np.ndarray, shape (n_cases, n_classes)
         """
+        self._check_is_fitted()
         return self.stage3_.predict_proba(self._transform(X))
 
     def get_feature_names_out(self) -> list[str]:
