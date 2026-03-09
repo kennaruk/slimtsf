@@ -52,11 +52,13 @@ root = "."
 # Semantic Release
 # ---------------------------------------------------------------------------
 [tool.semantic_release]
-branch = "main"
 build_command = "python -m build"
-upload_to_pypi = true
 changelog_file = "CHANGELOG.md"
 commit_message = "chore(release): {version} [skip ci]"
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
 
 # version_variables is intentionally omitted — version is authoritative via
 # setuptools-scm git tags, so PSR does not need to update any version string.
@@ -69,6 +71,7 @@ patch_tags = ["fix", "perf", "refactor"]
 [tool.semantic_release.publish]
 dist_glob_patterns = ["dist/*"]
 upload_to_vcs_release = true
+upload_to_pypi = true
 
 # ---------------------------------------------------------------------------
 # Pytest
