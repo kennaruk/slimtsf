@@ -1,0 +1,67 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Conda environment files
+*.conda
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# MacOS
+.DS_Store
+
+# Test, coverage, and profiling
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Data, logs, and outputs
+*.log
+*.out
+*.dat
+*.csv
+*.tsv
+*.db
+*.sqlite
+*.h5
+*.hdf5
+
+# Notebooks outputs (optional, if you want to ignore outputs)
+**/.ipynb_checkpoints
+**/*.nbconvert.ipynb
+
+# 
+ignore_*

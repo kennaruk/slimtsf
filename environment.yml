@@ -1,0 +1,22 @@
+name: slimtsf-v1
+channels:
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+  - conda-forge
+dependencies:
+  - python=3.13
+  - ipykernel
+  # Core runtime dependencies
+  - numpy>=1.24
+  - scikit-learn>=1.3
+  - joblib>=1.3
+  # Dev / testing tools
+  - pytest>=7.4
+  - pip
+  - pip:
+    # Installed via pip because they're not in conda channels
+    - setuptools-scm>=8
+    - python-semantic-release>=8.0
+    - build
+    - twine
+prefix: /opt/anaconda3/envs/slimtsf-v1
