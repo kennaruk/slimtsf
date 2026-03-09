@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.2 (2026-03-09)
+
+### Bug Fixes
+
+- Ci/cd twine publish
+  ([`0c05fac`](https://github.com/kennaruk/slimtsf/commit/0c05fac3f08061d7be98d3e7d6f9a37ef733061a))
+
+
 ## v1.0.0 (2026-03-09)
 
 - Initial Release
