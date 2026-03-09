@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.1 (2026-03-09)
+
+### Bug Fixes
+
+- **CI/CD**: Correct env pypi key
+  ([`fdbd0be`](https://github.com/kennaruk/slimtsf/commit/fdbd0be9c6987c320373867368e71b8f6e792eb2))
+
+
 ## v1.0.0 (2026-03-09)
 
 - Initial Release
