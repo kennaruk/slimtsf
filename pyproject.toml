@@ -58,9 +58,8 @@ upload_to_pypi = true
 changelog_file = "CHANGELOG.md"
 commit_message = "chore(release): {version} [skip ci]"
 
-[tool.semantic_release.version_variables]
-# Keeps the __version__ in pyproject.toml in sync (optional — version is
-# authoritative via setuptools-scm git tags)
+# version_variables is intentionally omitted — version is authoritative via
+# setuptools-scm git tags, so PSR does not need to update any version string.
 
 [tool.semantic_release.commit_parser_options]
 allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "chore", "test", "ci", "build"]
