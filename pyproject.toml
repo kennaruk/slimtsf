@@ -54,7 +54,7 @@ root = "."
 # Semantic Release
 # ---------------------------------------------------------------------------
 [tool.semantic_release]
-build_command = "python -m build"
+build_command = ""   # build happens separately AFTER tagging (see publish.yml)
 changelog_file = "CHANGELOG.md"
 commit_message = "chore(release): {version} [skip ci]"
 

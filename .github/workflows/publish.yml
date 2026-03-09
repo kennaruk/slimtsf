@@ -42,9 +42,19 @@ jobs:
         run: pytest -v
 
       # ---------------------------------------------------------------
-      # Semantic Release — bumps version, creates git tag, GitHub Release,
-      # and runs `python -m build` (populates dist/).
-      # No release is triggered if there are no feat/fix commits.
+      # Capture the current latest tag so we can detect if PSR made a
+      # new release (used to gate the build + PyPI upload steps).
+      # ---------------------------------------------------------------
+      - name: Record tag before release
+        id: before
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      # ---------------------------------------------------------------
+      # Semantic Release — bumps version, commits, creates git tag,
+      # and pushes. Does NOT build (build_command="" in pyproject.toml)
+      # so setuptools-scm won't see a pre-tag dirty state.
       # ---------------------------------------------------------------
       - name: Python Semantic Release
         run: semantic-release version
@@ -52,11 +62,33 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---------------------------------------------------------------
-      # Upload to PyPI — only runs if dist/ was actually built above.
-      # Uses twine directly so credentials are explicit and auditable.
+      # Detect if a new tag was created by PSR.
+      # ---------------------------------------------------------------
+      - name: Check if a new release was made
+        id: released
+        run: |
+          NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          OLD_TAG="${{ steps.before.outputs.tag }}"
+          if [ "$NEW_TAG" != "$OLD_TAG" ]; then
+            echo "yes=true" >> $GITHUB_OUTPUT
+          else
+            echo "yes=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ---------------------------------------------------------------
+      # Build AFTER PSR has created + pushed the tag.
+      # setuptools-scm now sees the exact tag → clean version (e.g. 0.1.0)
+      # with no local identifier — accepted by PyPI.
+      # ---------------------------------------------------------------
+      - name: Build distribution
+        if: steps.released.outputs.yes == 'true'
+        run: python -m build
+
+      # ---------------------------------------------------------------
+      # Upload clean wheel + sdist to PyPI.
       # ---------------------------------------------------------------
       - name: Publish to PyPI
-        if: ${{ hashFiles('dist/*.whl') != '' }}
+        if: steps.released.outputs.yes == 'true'
         run: twine upload dist/*
         env:
           TWINE_USERNAME: __token__
