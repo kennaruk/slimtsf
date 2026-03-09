@@ -42,12 +42,22 @@ jobs:
         run: pytest -v
 
       # ---------------------------------------------------------------
-      # Semantic Release (run as CLI — uses the same Python env above,
-      # so 'python -m build' works correctly)
+      # Semantic Release — bumps version, creates git tag, GitHub Release,
+      # and runs `python -m build` (populates dist/).
       # No release is triggered if there are no feat/fix commits.
       # ---------------------------------------------------------------
       - name: Python Semantic Release
-        run: semantic-release version && semantic-release publish
+        run: semantic-release version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+
+      # ---------------------------------------------------------------
+      # Upload to PyPI — only runs if dist/ was actually built above.
+      # Uses twine directly so credentials are explicit and auditable.
+      # ---------------------------------------------------------------
+      - name: Publish to PyPI
+        if: ${{ hashFiles('dist/*.whl') != '' }}
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
