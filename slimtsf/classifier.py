@@ -7,6 +7,8 @@ SlimTSFClassifier — a full Stage 1 + Stage 2 + Stage 3 pipeline
 
 from __future__ import annotations
 
+import collections
+import math
 from typing import Optional, Sequence, Union
 
 import numpy as np
@@ -20,7 +22,8 @@ class SlimTSFClassifier:
     """
     Sliding-Window Multivariate Time-Series Forest Classifier.
 
-    Bundles all three pipeline stages into a single sklearn-compatible estimator:
+    Bundles all three pipeline stages into a single sklearn-compatible estimator,
+    with an optional Stage 4 for bootstrap feature selection.
 
         Stage 1 – ``SlidingWindowIntervalTransformer``
             Extracts sliding-window features (mean, std, slope by default)
@@ -30,8 +33,12 @@ class SlimTSFClassifier:
             Pools the per-window features into global min / mean / max
             statistics per (channel, feature) group.
 
-        Stage 3 – ``RandomForestClassifier`` (scikit-learn)
-            Classifies the compact pooled feature matrix.
+        Stage 3 – Bootstrap Feature Selection (Optional)
+            Runs multiple Random Forest fits to identify and select only the
+            most important and stable summary features.
+
+        Stage 4 – ``RandomForestClassifier`` (scikit-learn)
+            Classifies the final selected feature matrix.
 
     Parameters
     ----------
@@ -52,7 +59,15 @@ class SlimTSFClassifier:
         Statistics to pool across the window dimension for each
         (channel, feature) group.  Supported: ``"min"``, ``"mean"``, ``"max"``.
 
-    # --- Stage 3 (Random Forest) ---
+    # --- Stage 3 (Bootstrap Selection) ---
+    bootstrap : bool, default False
+        Whether to perform bootstrap feature selection before final training.
+    bootstrap_run : int, default 10
+        Number of bootstrap iterations to run for feature ranking.
+    top_rank : int, default 5
+        Number of top features to select per bootstrap iteration for ranking.
+
+    # --- Stage 4 (Random Forest) ---
     n_estimators : int, default 200
         Number of trees in the random forest.
     max_depth : int or None, default None
@@ -79,11 +94,13 @@ class SlimTSFClassifier:
     stage2_ : IntervalStatsPoolingTransformer
         Fitted Stage 2 transformer.
     stage3_ : RandomForestClassifier
-        Fitted Stage 3 random forest.
+        Fitted Stage 4 random forest.
+    feature_indices_ : np.ndarray or None
+        Indices of the selected features if ``bootstrap=True``; otherwise ``None``.
     classes_ : np.ndarray
         Unique class labels seen during ``fit``.
     n_features_in_ : int
-        Number of pooled features fed into the random forest.
+        Number of features fed into the final random forest.
 
     Examples
     --------
@@ -92,9 +109,9 @@ class SlimTSFClassifier:
     >>> rng = np.random.default_rng(0)
     >>> X = rng.standard_normal((30, 2, 50))   # 30 cases, 2 channels, 50 time points
     >>> y = np.array([0] * 15 + [1] * 15)
-    >>> clf = SlimTSFClassifier(n_estimators=50, random_state=0)
+    >>> clf = SlimTSFClassifier(bootstrap=True, n_estimators=50, random_state=0)
     >>> clf.fit(X, y)
-    SlimTSFClassifier(n_estimators=50, random_state=0)
+    SlimTSFClassifier(bootstrap=True, n_estimators=50, random_state=0)
     >>> preds = clf.predict(X)
     >>> preds.shape
     (30,)
@@ -110,7 +127,11 @@ class SlimTSFClassifier:
         ),
         # Stage 2
         aggregations: Sequence[str] = ("min", "mean", "max"),
-        # Stage 3
+        # Stage 3 (Bootstrap)
+        bootstrap: bool = False,
+        bootstrap_run: int = 10,
+        top_rank: int = 5,
+        # Stage 4
         n_estimators: int = 200,
         max_depth: Optional[int] = None,
         class_weight: Optional[Union[str, dict]] = "balanced",
@@ -124,6 +145,9 @@ class SlimTSFClassifier:
         self.window_step_ratio = window_step_ratio
         self.feature_functions = feature_functions
         self.aggregations = aggregations
+        self.bootstrap = bootstrap
+        self.bootstrap_run = bootstrap_run
+        self.top_rank = top_rank
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.class_weight = class_weight
@@ -136,6 +160,7 @@ class SlimTSFClassifier:
         self.stage1_: Optional[SlidingWindowIntervalTransformer] = None
         self.stage2_: Optional[IntervalStatsPoolingTransformer] = None
         self.stage3_: Optional[RandomForestClassifier] = None
+        self.feature_indices_: Optional[np.ndarray] = None
         self.classes_: Optional[np.ndarray] = None
         self.n_features_in_: Optional[int] = None
 
@@ -179,9 +204,16 @@ class SlimTSFClassifier:
             feature_metadata=self.stage1_.feature_metadata_,
         )
 
-        self.n_features_in_ = pooled_features.shape[1]
+        # Stage 3 — Bootstrap Selection (Optional)
+        if self.bootstrap:
+            selected_features = self._fit_bootstrap(pooled_features, y)
+        else:
+            selected_features = pooled_features
+            self.feature_indices_ = None
 
-        # Stage 3 — random forest
+        self.n_features_in_ = selected_features.shape[1]
+
+        # Stage 4 — final random forest
         self.stage3_ = RandomForestClassifier(
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
@@ -189,7 +221,7 @@ class SlimTSFClassifier:
             random_state=self.random_state,
             n_jobs=self.n_jobs,
         )
-        self.stage3_.fit(pooled_features, y)
+        self.stage3_.fit(selected_features, y)
 
         return self
 
@@ -225,12 +257,12 @@ class SlimTSFClassifier:
 
     def get_feature_names_out(self) -> list[str]:
         """
-        Return human-readable column names for the pooled features fed into the RF.
+        Return human-readable column names for the features fed into the final RF.
 
         Returns
         -------
         list of str
-            One name per pooled feature column.
+            One name per selected feature column.
 
         Raises
         ------
@@ -238,10 +270,14 @@ class SlimTSFClassifier:
             If called before ``fit()``.
         """
         self._check_is_fitted()
-        return self.stage2_.get_feature_names_out()
+        names = np.array(self.stage2_.get_feature_names_out())
+        if self.feature_indices_ is not None:
+            names = names[self.feature_indices_]
+        return names.tolist()
 
     def __repr__(self) -> str:
         params = (
+            f"bootstrap={self.bootstrap!r}, "
             f"n_estimators={self.n_estimators!r}, "
             f"random_state={self.random_state!r}"
         )
@@ -251,12 +287,57 @@ class SlimTSFClassifier:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _fit_bootstrap(self, pooled_features: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """
+        Identify top stable features by running multiple RF passes.
+        Directly refactored from v0's _fit_bootstrap.
+        """
+        n_features = pooled_features.shape[1]
+        top_features_all_runs = []
+
+        # Multi-pass ranking
+        for i in range(self.bootstrap_run):
+            # Use same RF config as final model (except possibly n_estimators if v0 optimized it)
+            # v0 uses a fresh RF each time
+            clf = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                class_weight=self.class_weight,
+                random_state=self.random_state if self.random_state is None else self.random_state + i,
+                n_jobs=self.n_jobs,
+            )
+            clf.fit(pooled_features, y)
+            
+            # Sort importances desc
+            importances = clf.feature_importances_
+            sorted_idx = np.argsort(importances)[::-1]
+            
+            # Record top-k
+            top_features_all_runs.extend(sorted_idx[:self.top_rank])
+
+        # Frequency count across passes
+        counts = collections.Counter(top_features_all_runs)
+        
+        # Rule of thumb from v0: select Top log2(N) features
+        n_to_select = math.ceil(math.log2(n_features)) if n_features > 0 else 0
+        
+        selected = [idx for idx, _count in counts.most_common(n_to_select)]
+        
+        # Sort indices to keep feature order predictable
+        self.feature_indices_ = np.sort(np.array(selected, dtype=int))
+        
+        return pooled_features[:, self.feature_indices_]
+
     def _transform(self, X: np.ndarray) -> np.ndarray:
-        """Apply fitted Stage 1 + Stage 2 to new data (no re-fitting)."""
+        """Apply fitted Stage 1 + Stage 2 (+ Stage 4 selection) to new data."""
         self._check_is_fitted()
         self._validate_X(X)
         interval_features = self.stage1_.transform(X)
-        return self.stage2_.transform(interval_features)
+        pooled_features = self.stage2_.transform(interval_features)
+        
+        if self.feature_indices_ is not None:
+            return pooled_features[:, self.feature_indices_]
+        return pooled_features
 
     def _check_is_fitted(self) -> None:
         if self.stage1_ is None or self.stage2_ is None or self.stage3_ is None:

@@ -2,6 +2,7 @@
 Tests for SlimTSFClassifier — Stage 1 + Stage 2 + Stage 3 end-to-end.
 """
 
+import math
 import sys
 from pathlib import Path
 
@@ -14,8 +15,6 @@ import pytest
 
 from slimtsf import (
     SlimTSFClassifier,
-    SlidingWindowIntervalTransformer,
-    IntervalStatsPoolingTransformer,
 )
 
 
@@ -199,6 +198,44 @@ class TestFeatureNamesOut:
         clf = SlimTSFClassifier()
         with pytest.raises(RuntimeError, match="not fitted"):
             clf.get_feature_names_out()
+
+
+# ---------------------------------------------------------------------------
+# Bootstrap Feature Selection (Stage 4)
+# ---------------------------------------------------------------------------
+
+class TestBootstrap:
+    def test_bootstrap_reduces_feature_count(self, small_dataset):
+        X, y = small_dataset
+        
+        # 1. No bootstrap
+        clf_no = SlimTSFClassifier(bootstrap=False, n_estimators=5, random_state=0)
+        clf_no.fit(X, y)
+        n_features_no = clf_no.n_features_in_
+        
+        # 2. With bootstrap
+        clf_yes = SlimTSFClassifier(bootstrap=True, bootstrap_run=3, top_rank=2, n_estimators=5, random_state=0)
+        clf_yes.fit(X, y)
+        n_features_yes = clf_yes.n_features_in_
+        
+        # Bootstrap should pick at most ceil(log2(N)) features.
+        # It could be less if fewer unique features were selected across bootstrap runs.
+        assert n_features_yes < n_features_no
+        assert n_features_yes <= math.ceil(math.log2(n_features_no))
+
+    def test_bootstrap_indices_stored(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.feature_indices_ is not None
+        assert len(clf.feature_indices_) == clf.n_features_in_
+
+    def test_bootstrap_predict_works(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        preds = clf.predict(X)
+        assert preds.shape == (X.shape[0],)
 
 
 # ---------------------------------------------------------------------------
