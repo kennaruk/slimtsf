@@ -10,6 +10,13 @@ from typing import Callable, List, Optional, Sequence, Tuple, Union, Dict
 import numpy as np
 from joblib import Parallel, delayed
 
+try:
+    import pycatch22
+    import antropy as ant
+    _HAVE_EXTRAS = True
+except ImportError:
+    _HAVE_EXTRAS = False
+
 
 # ----------------------------- Feature Logic -----------------------------
 
@@ -90,7 +97,60 @@ def built_in_feature_functions(names: Sequence[str]) -> List[FeatureFunction]:
             name="slope",
             function=_compute_slope_for_segments,
         ),
+        "median": FeatureFunction(
+            name="median",
+            function=lambda segments: np.median(segments, axis=1).astype(float, copy=False),
+        ),
+        "iqr": FeatureFunction(
+            name="iqr",
+            function=lambda segments: np.subtract(*np.percentile(segments, [75, 25], axis=1)).astype(float, copy=False),
+        ),
+        "min": FeatureFunction(
+            name="min",
+            function=lambda segments: np.min(segments, axis=1).astype(float, copy=False),
+        ),
+        "max": FeatureFunction(
+            name="max",
+            function=lambda segments: np.max(segments, axis=1).astype(float, copy=False),
+        ),
     }
+
+    if _HAVE_EXTRAS:
+        mapping.update({
+            "permutation_entropy": FeatureFunction(
+                name="permutation_entropy",
+                function=lambda segments: np.array([ant.perm_entropy(row, normalize=True) for row in segments], dtype=float),
+            ),
+            "sample_entropy": FeatureFunction(
+                name="sample_entropy",
+                function=lambda segments: np.array([ant.sample_entropy(row) for row in segments], dtype=float),
+            ),
+            "lempel_ziv_complexity": FeatureFunction(
+                name="lempel_ziv_complexity",
+                function=lambda segments: np.array([
+                    ant.lziv_complexity(row > np.median(row), normalize=True) for row in segments
+                ], dtype=float),
+            ),
+            "trev": FeatureFunction(
+                name="trev",
+                function=lambda segments: np.array([pycatch22.CO_trev_1_num(row.tolist()) for row in segments], dtype=float),
+            ),
+            "acf_first_min": FeatureFunction(
+                name="acf_first_min",
+                function=lambda segments: np.array([pycatch22.CO_FirstMin_ac(row.tolist()) for row in segments], dtype=float),
+            ),
+            "stretch_high": FeatureFunction(
+                name="stretch_high",
+                function=lambda segments: np.array([pycatch22.SB_MotifThree_quantile_hh(row.tolist()) for row in segments], dtype=float),
+            ),
+            "outlier_timing": FeatureFunction(
+                name="outlier_timing",
+                # The prompt ambiguous for positive vs negative but standard catch22 outlier timing is commonly the combination or positive
+                # Let's use the positive outliers for mdrmd.
+                function=lambda segments: np.array([pycatch22.DN_OutlierInclude_p_001_mdrmd(row.tolist()) for row in segments], dtype=float),
+            ),
+        })
+
     functions: List[FeatureFunction] = []
     for key in names:
         if key not in mapping:
