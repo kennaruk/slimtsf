@@ -101,17 +101,17 @@ print(scores.mean())
 
 ### `SlimTSFClassifier`
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `window_sizes` | `list[int] \| None` | `None` | Window sizes. Auto if `None` (`[T, T//2, …]`). |
-| `window_step_ratio` | `float` | `0.5` | Step = ratio × window size. |
-| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features. |
-| `aggregations` | `list[str]` | `("min","mean","max")` | Pooling statistics across windows. |
-| `n_estimators` | `int` | `200` | Number of RF trees. |
-| `max_depth` | `int\|None` | `None` | Max tree depth. |
-| `class_weight` | `str\|dict\|None` | `"balanced"` | RF class weighting. |
-| `random_state` | `int\|None` | `None` | Reproducibility seed. |
-| `n_jobs` | `int` | `1` | Parallel jobs for RF (`-1` = all CPUs). |
+| Parameter           | Type                         | Default                  | Description                                    |
+| ------------------- | ---------------------------- | ------------------------ | ---------------------------------------------- |
+| `window_sizes`      | `list[int] \| None`          | `None`                   | Window sizes. Auto if `None` (`[T, T//2, …]`). |
+| `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                    |
+| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features.                           |
+| `aggregations`      | `list[str]`                  | `("min","mean","max")`   | Pooling statistics across windows.             |
+| `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                            |
+| `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                |
+| `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                            |
+| `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                          |
+| `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).        |
 
 **Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()`
 
@@ -159,12 +159,12 @@ transformer = SlidingWindowIntervalTransformer(feature_functions=["mean", iqr])
 
 This project follows [Semantic Versioning](https://semver.org/) and [Conventional Commits](https://www.conventionalcommits.org/):
 
-| Commit prefix | Effect |
-|---|---|
-| `fix:` | patch release (0.1.x) |
-| `feat:` | minor release (0.x.0) |
+| Commit prefix                 | Effect                |
+| ----------------------------- | --------------------- |
+| `fix:`                        | patch release (0.1.x) |
+| `feat:`                       | minor release (0.x.0) |
 | `feat!:` / `BREAKING CHANGE:` | major release (x.0.0) |
-| `docs:` `chore:` `test:` | no release |
+| `docs:` `chore:` `test:`      | no release            |
 
 ---
 
