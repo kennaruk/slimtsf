@@ -105,13 +105,19 @@ print(scores.mean())
 | ------------------- | ---------------------------- | ------------------------ | ---------------------------------------------- |
 | `window_sizes`      | `list[int] \| None`          | `None`                   | Window sizes. Auto if `None` (`[T, T//2, …]`). |
 | `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                    |
-| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features.                           |
+| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features (see list below).          |
 | `aggregations`      | `list[str]`                  | `("min","mean","max")`   | Pooling statistics across windows.             |
 | `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                            |
 | `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                |
 | `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                            |
 | `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                          |
 | `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).        |
+
+**Built-in Built-in Feature Functions (`feature_functions`)**
+
+- **Basic stats**: `"mean"`, `"std"`, `"slope"`, `"median"`, `"iqr"`, `"min"`, `"max"`
+- **Catch22 (Requires `pycatch22`)**: `"trev"`, `"acf_first_min"`, `"stretch_high"`, `"outlier_timing"`
+- **Complexity (Requires `antropy`)**: `"permutation_entropy"`, `"sample_entropy"`, `"lempel_ziv_complexity"`
 
 **Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()`
 
