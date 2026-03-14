@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-03-14)
+
+### Features
+
+- Add pycatch22, antropy, and basic statistical feature functions
+  ([`9fed0cb`](https://github.com/kennaruk/slimtsf/commit/9fed0cb631e86fdbc709eaefed743f903b79bf9c))
+
+
 ## v1.0.3 (2026-03-14)
 
 ### Bug Fixes
