@@ -28,6 +28,7 @@ dependencies = [
     "joblib>=1.3",
     "pycatch22>=0.4.0",
     "antropy>=0.1.0",
+    "shap>=0.40.0",
 ]
 
 [project.optional-dependencies]

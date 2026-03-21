@@ -90,8 +90,13 @@ print(scores.mean())
     │  pool across windows: min / mean / max.
     │  Output: 2-D compact matrix  (n_cases, n_pooled_features)
     │
-    ▼  Stage 3 — RandomForestClassifier (scikit-learn)
-       Classify the pooled feature matrix.
+    ▼  Stage 3 — Bootstrap Feature Selection (Optional)
+    │  Run multiple Random Forest passes to rank and select the top
+    │  most stable features (log2 of total features).
+    │  Output: 2-D refined matrix  (n_cases, n_selected_features)
+    │
+    ▼  Stage 4 — RandomForestClassifier (scikit-learn)
+       Classify the final selected feature matrix.
        Output: predicted labels / probabilities
 ```
 
@@ -101,23 +106,21 @@ print(scores.mean())
 
 ### `SlimTSFClassifier`
 
-| Parameter           | Type                         | Default                  | Description                                    |
-| ------------------- | ---------------------------- | ------------------------ | ---------------------------------------------- |
-| `window_sizes`      | `list[int] \| None`          | `None`                   | Window sizes. Auto if `None` (`[T, T//2, …]`). |
-| `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                    |
-| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features (see list below).          |
-| `aggregations`      | `list[str]`                  | `("min","mean","max")`   | Pooling statistics across windows.             |
-| `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                            |
-| `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                |
-| `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                            |
-| `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                          |
-| `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).        |
-
-**Built-in Built-in Feature Functions (`feature_functions`)**
-
-- **Basic stats**: `"mean"`, `"std"`, `"slope"`, `"median"`, `"iqr"`, `"min"`, `"max"`
-- **Catch22 (Requires `pycatch22`)**: `"trev"`, `"acf_first_min"`, `"stretch_high"`, `"outlier_timing"`
-- **Complexity (Requires `antropy`)**: `"permutation_entropy"`, `"sample_entropy"`, `"lempel_ziv_complexity"`
+| Parameter           | Type                         | Default                  | Description                                                          |
+| ------------------- | ---------------------------- | ------------------------ | -------------------------------------------------------------------- |
+| `window_sizes`      | `list[int] \| None`          | `None`                   | Window sizes. Auto if `None` (`[T, T//2, …]`).                       |
+| `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                                          |
+| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features.                                                 |
+| `aggregations`      | `list[str] \| None`          | `("min","mean","max")`   | Pooling statistics across windows. Pass `None` to skip Stage 2.      |
+| `bootstrap`         | `bool`                       | `False`                  | Run multi-pass feature selection before final RF.                    |
+| `bootstrap_run`     | `int`                        | `10`                     | Number of passes for feature ranking.                                |
+| `top_rank`          | `int`                        | `5`                      | Top features to select per pass.                                     |
+| `importance_method` | `str`                        | `"gini"`                 | Method for feature calculation: `"gini"`, `"permutation"`, `"shap"`. |
+| `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                                                  |
+| `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                                      |
+| `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                                                  |
+| `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                                                |
+| `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).                              |
 
 **Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()`
 

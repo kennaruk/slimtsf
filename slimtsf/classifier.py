@@ -66,6 +66,8 @@ class SlimTSFClassifier:
         Number of bootstrap iterations to run for feature ranking.
     top_rank : int, default 5
         Number of top features to select per bootstrap iteration for ranking.
+    importance_method : {"gini", "permutation", "shap"}, default "gini"
+        Method to calculate feature importance during the bootstrap phase.
 
     # --- Stage 4 (Random Forest) ---
     n_estimators : int, default 200
@@ -131,6 +133,7 @@ class SlimTSFClassifier:
         bootstrap: bool = False,
         bootstrap_run: int = 10,
         top_rank: int = 5,
+        importance_method: str = "gini",
         # Stage 4
         n_estimators: int = 200,
         max_depth: Optional[int] = None,
@@ -148,6 +151,7 @@ class SlimTSFClassifier:
         self.bootstrap = bootstrap
         self.bootstrap_run = bootstrap_run
         self.top_rank = top_rank
+        self.importance_method = importance_method
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.class_weight = class_weight
@@ -198,11 +202,15 @@ class SlimTSFClassifier:
         interval_features = self.stage1_.fit_transform(X)
 
         # Stage 2 — stats pooling
-        self.stage2_ = IntervalStatsPoolingTransformer(aggregations=self.aggregations)
-        pooled_features = self.stage2_.fit_transform(
-            interval_features,
-            feature_metadata=self.stage1_.feature_metadata_,
-        )
+        if self.aggregations is None or len(self.aggregations) == 0:
+            self.stage2_ = None
+            pooled_features = interval_features
+        else:
+            self.stage2_ = IntervalStatsPoolingTransformer(aggregations=self.aggregations)
+            pooled_features = self.stage2_.fit_transform(
+                interval_features,
+                feature_metadata=self.stage1_.feature_metadata_,
+            )
 
         # Stage 3 — Bootstrap Selection (Optional)
         if self.bootstrap:
@@ -270,7 +278,11 @@ class SlimTSFClassifier:
             If called before ``fit()``.
         """
         self._check_is_fitted()
-        names = np.array(self.stage2_.get_feature_names_out())
+        if self.stage2_ is not None:
+            names = np.array(self.stage2_.get_feature_names_out())
+        else:
+            names = np.array(self.stage1_.get_feature_names_out())
+        
         if self.feature_indices_ is not None:
             names = names[self.feature_indices_]
         return names.tolist()
@@ -308,8 +320,34 @@ class SlimTSFClassifier:
             )
             clf.fit(pooled_features, y)
             
+            # Calculate importance based on chosen method
+            if self.importance_method == "gini":
+                importances = clf.feature_importances_
+            elif self.importance_method == "permutation":
+                from sklearn.inspection import permutation_importance
+                result = permutation_importance(
+                    clf, pooled_features, y, 
+                    n_repeats=3, 
+                    random_state=self.random_state if self.random_state is None else self.random_state + i,
+                    n_jobs=self.n_jobs
+                )
+                importances = result.importances_mean
+            elif self.importance_method == "shap":
+                import shap
+                explainer = shap.TreeExplainer(clf)
+                shap_values = explainer.shap_values(pooled_features, check_additivity=False)
+                
+                if isinstance(shap_values, list):
+                    # Average over classes, then mean absolute over samples
+                    importances = np.mean([np.abs(sv).mean(axis=0) for sv in shap_values], axis=0)
+                elif len(shap_values.shape) == 3:
+                    importances = np.abs(shap_values).mean(axis=0).mean(axis=1)
+                else:
+                    importances = np.abs(shap_values).mean(axis=0)
+            else:
+                raise ValueError(f"Unknown importance_method: {self.importance_method}")
+            
             # Sort importances desc
-            importances = clf.feature_importances_
             sorted_idx = np.argsort(importances)[::-1]
             
             # Record top-k
@@ -333,14 +371,17 @@ class SlimTSFClassifier:
         self._check_is_fitted()
         self._validate_X(X)
         interval_features = self.stage1_.transform(X)
-        pooled_features = self.stage2_.transform(interval_features)
+        if self.stage2_ is not None:
+            pooled_features = self.stage2_.transform(interval_features)
+        else:
+            pooled_features = interval_features
         
         if self.feature_indices_ is not None:
             return pooled_features[:, self.feature_indices_]
         return pooled_features
 
     def _check_is_fitted(self) -> None:
-        if self.stage1_ is None or self.stage2_ is None or self.stage3_ is None:
+        if self.stage1_ is None or self.stage3_ is None:
             raise RuntimeError(
                 "This SlimTSFClassifier instance is not fitted yet. "
                 "Call 'fit' before using this estimator."

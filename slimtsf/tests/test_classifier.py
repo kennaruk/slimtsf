@@ -177,6 +177,20 @@ class TestConfigurability:
         clf.fit(X, y)
         assert clf.predict(X).shape == (15,)
 
+    def test_skip_stage_2(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(aggregations=None, n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.stage2_ is None
+        assert clf.predict(X).shape == (20,)
+        
+    def test_skip_stage_2_empty_tuple(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(aggregations=(), n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.stage2_ is None
+        assert clf.predict(X).shape == (20,)
+
 
 # ---------------------------------------------------------------------------
 # Feature names
@@ -236,6 +250,31 @@ class TestBootstrap:
         clf.fit(X, y)
         preds = clf.predict(X)
         assert preds.shape == (X.shape[0],)
+
+    def test_bootstrap_importance_method_gini(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, top_rank=2, importance_method="gini", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.feature_indices_ is not None
+
+    def test_bootstrap_importance_method_permutation(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, top_rank=2, importance_method="permutation", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.feature_indices_ is not None
+
+    def test_bootstrap_importance_method_shap(self, small_dataset):
+        pytest.importorskip("shap")
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, top_rank=2, importance_method="shap", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.feature_indices_ is not None
+
+    def test_bootstrap_invalid_importance_method(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=1, importance_method="invalid", n_estimators=5)
+        with pytest.raises(ValueError, match="Unknown importance_method"):
+            clf.fit(X, y)
 
 
 # ---------------------------------------------------------------------------
