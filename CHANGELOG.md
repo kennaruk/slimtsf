@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-03-21)
+
+### Features
+
+- Supports aggregations=None to skip, adds permutation and SHAP as alternate feature importance
+  functions
+  ([`9966397`](https://github.com/kennaruk/slimtsf/commit/996639741018248643379d69757bcc145bfe8439))
+
+
 ## v1.1.0 (2026-03-14)
 
 ### Features
