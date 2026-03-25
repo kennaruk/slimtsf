@@ -106,6 +106,19 @@ class TestFitPredict:
         assert isinstance(clf.n_features_in_, int)
         assert clf.n_features_in_ > 0
 
+    def test_stage2_concatenates_stage1(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(window_sizes=[5], n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        
+        # Manually compute Stage 1 and Stage 2 feature counts
+        interval_features = clf.stage1_.transform(X)
+        pooled_features = clf.stage2_.transform(interval_features)
+        
+        # Verify concatenation: The model gets BOTH sets of features
+        expected_total_features = interval_features.shape[1] + pooled_features.shape[1]
+        assert clf.n_features_in_ == expected_total_features
+
 
 # ---------------------------------------------------------------------------
 # Predict on unseen data (critical: must not refit)

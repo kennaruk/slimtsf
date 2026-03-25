@@ -204,19 +204,20 @@ class SlimTSFClassifier:
         # Stage 2 — stats pooling
         if self.aggregations is None or len(self.aggregations) == 0:
             self.stage2_ = None
-            pooled_features = interval_features
+            stage1_2_features = interval_features
         else:
             self.stage2_ = IntervalStatsPoolingTransformer(aggregations=self.aggregations)
             pooled_features = self.stage2_.fit_transform(
                 interval_features,
                 feature_metadata=self.stage1_.feature_metadata_,
             )
+            stage1_2_features = np.hstack((interval_features, pooled_features))
 
         # Stage 3 — Bootstrap Selection (Optional)
         if self.bootstrap:
-            selected_features = self._fit_bootstrap(pooled_features, y)
+            selected_features = self._fit_bootstrap(stage1_2_features, y)
         else:
-            selected_features = pooled_features
+            selected_features = stage1_2_features
             self.feature_indices_ = None
 
         self.n_features_in_ = selected_features.shape[1]
@@ -278,10 +279,12 @@ class SlimTSFClassifier:
             If called before ``fit()``.
         """
         self._check_is_fitted()
+        names_stage1 = self.stage1_.get_feature_names_out()
         if self.stage2_ is not None:
-            names = np.array(self.stage2_.get_feature_names_out())
+            names_stage2 = self.stage2_.get_feature_names_out()
+            names = np.array(names_stage1 + names_stage2)
         else:
-            names = np.array(self.stage1_.get_feature_names_out())
+            names = np.array(names_stage1)
         
         if self.feature_indices_ is not None:
             names = names[self.feature_indices_]
@@ -373,12 +376,13 @@ class SlimTSFClassifier:
         interval_features = self.stage1_.transform(X)
         if self.stage2_ is not None:
             pooled_features = self.stage2_.transform(interval_features)
+            stage1_2_features = np.hstack((interval_features, pooled_features))
         else:
-            pooled_features = interval_features
+            stage1_2_features = interval_features
         
         if self.feature_indices_ is not None:
-            return pooled_features[:, self.feature_indices_]
-        return pooled_features
+            return stage1_2_features[:, self.feature_indices_]
+        return stage1_2_features
 
     def _check_is_fitted(self) -> None:
         if self.stage1_ is None or self.stage3_ is None:

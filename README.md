@@ -89,6 +89,7 @@ print(scores.mean())
     │  For each (channel, feature) group,
     │  pool across windows: min / mean / max.
     │  Output: 2-D compact matrix  (n_cases, n_pooled_features)
+    │  *Note: These pooled features are concatenated with Stage 1 features.*
     │
     ▼  Stage 3 — Bootstrap Feature Selection (Optional)
     │  Run multiple Random Forest passes to rank and select the top
