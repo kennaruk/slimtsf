@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-03-25)
+
+### Bug Fixes
+
+- Second transformer should concat result with first transformer
+  ([`a70ebb6`](https://github.com/kennaruk/slimtsf/commit/a70ebb6366fbf18ea35f9b582995c1e6180122ce))
+
+
 ## v1.2.0 (2026-03-21)
 
 ### Features
