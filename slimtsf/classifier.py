@@ -325,26 +325,42 @@ class SlimTSFClassifier:
 
     def _fit_bootstrap(self, pooled_features: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
-        Identify top stable features by running multiple RF passes.
-        Identifies top stable features by running multiple Random Forest passes over the pooled features.
+        Identify top stable features by running multiple RF passes or univariate statistical selections.
         """
         n_features = pooled_features.shape[1]
-        top_features_all_runs = []
+        n_to_select = math.ceil(math.log2(n_features)) if n_features > 0 else 0
+        if n_to_select == 0:
+            self.feature_indices_ = np.array([], dtype=int)
+            return pooled_features[:, self.feature_indices_]
 
-        # Multi-pass ranking
-        for i in range(self.bootstrap_run):
-            # Use consistent RF configuration for bootstrap passes
-            # Initialize a fresh Random Forest for each bootstrap pass to ensure independent evaluation
+        # 1. Univariate Statistical Selection (Skip Model Constraints)
+        if self.importance_method in ("fisher", "anova-f"):
+            from sklearn.feature_selection import f_classif
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                f_values, _ = f_classif(pooled_features, y)
+            importances = np.nan_to_num(f_values, nan=0.0)
+            sorted_idx = np.argsort(importances)[::-1]
+            selected = sorted_idx[:n_to_select]
+            self.feature_indices_ = np.sort(np.array(selected, dtype=int))
+            return pooled_features[:, self.feature_indices_]
+
+        # 2. Ensemble Tree-based Bootstrap (Execute Parallel)
+        from joblib import Parallel, delayed
+
+        def _run_single_bootstrap(pass_idx: int) -> list[int]:
+            # Initialize a fresh Random Forest for each bootstrap pass
+            # We strictly enforce n_jobs=1 internally to prevent nested heavy-lifting oversubscription threading crashes
             clf = RandomForestClassifier(
                 n_estimators=self.n_estimators,
                 max_depth=self.max_depth,
                 class_weight=self.class_weight,
-                random_state=self.random_state if self.random_state is None else self.random_state + i,
-                n_jobs=self.n_jobs,
+                random_state=self.random_state if self.random_state is None else self.random_state + pass_idx,
+                n_jobs=1,
             )
             clf.fit(pooled_features, y)
             
-            # Calculate importance based on chosen method
             if self.importance_method == "gini":
                 importances = clf.feature_importances_
             elif self.importance_method == "permutation":
@@ -352,8 +368,8 @@ class SlimTSFClassifier:
                 result = permutation_importance(
                     clf, pooled_features, y, 
                     n_repeats=3, 
-                    random_state=self.random_state if self.random_state is None else self.random_state + i,
-                    n_jobs=self.n_jobs
+                    random_state=self.random_state if self.random_state is None else self.random_state + pass_idx,
+                    n_jobs=1
                 )
                 importances = result.importances_mean
             elif self.importance_method == "shap":
@@ -362,33 +378,29 @@ class SlimTSFClassifier:
                 shap_values = explainer.shap_values(pooled_features, check_additivity=False)
                 
                 if isinstance(shap_values, list):
-                    # Average over classes, then mean absolute over samples
                     importances = np.mean([np.abs(sv).mean(axis=0) for sv in shap_values], axis=0)
                 elif len(shap_values.shape) == 3:
                     importances = np.abs(shap_values).mean(axis=0).mean(axis=1)
                 else:
                     importances = np.abs(shap_values).mean(axis=0)
-            elif self.importance_method in ("fisher", "anova-f"):
-                from sklearn.feature_selection import f_classif
-                import warnings
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    f_values, _ = f_classif(pooled_features, y)
-                importances = np.nan_to_num(f_values, nan=0.0)
             else:
                 raise ValueError(f"Unknown importance_method: {self.importance_method}")
             
             # Sort importances desc
             sorted_idx = np.argsort(importances)[::-1]
-            
-            # Record top-k
-            top_features_all_runs.extend(sorted_idx[:self.top_rank])
+            return sorted_idx[:self.top_rank].tolist()
+
+        # Joblib parallelism across entire bootstrapped passes simultaneously
+        results = Parallel(n_jobs=self.n_jobs)(
+            delayed(_run_single_bootstrap)(i) for i in range(self.bootstrap_run)
+        )
+        
+        top_features_all_runs = []
+        for run_features in results:
+            top_features_all_runs.extend(run_features)
 
         # Frequency count across passes
         counts = collections.Counter(top_features_all_runs)
-        
-        # Rule of thumb: select a logarithmic number of total features to prevent overfitting
-        n_to_select = math.ceil(math.log2(n_features)) if n_features > 0 else 0
         
         selected = [idx for idx, _count in counts.most_common(n_to_select)]
         
