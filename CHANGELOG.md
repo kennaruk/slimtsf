@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-04-16)
+
+### Features
+
+- **feature_mode / importance_method**: Support feature_modes and new fisher/anova-f feature
+  importance
+  ([`bd4c2e6`](https://github.com/kennaruk/slimtsf/commit/bd4c2e63471f3eaf12bc28fd281eb275ac645ebe))
+
+
 ## v1.2.1 (2026-03-25)
 
 ### Bug Fixes
