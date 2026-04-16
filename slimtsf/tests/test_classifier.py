@@ -204,6 +204,44 @@ class TestConfigurability:
         assert clf.stage2_ is None
         assert clf.predict(X).shape == (20,)
 
+    def test_feature_mode_interval(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(feature_mode="interval", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.stage2_ is None
+        assert clf.predict(X).shape == (20,)
+        
+        interval_features = clf.stage1_.transform(X)
+        assert clf.n_features_in_ == interval_features.shape[1]
+        
+    def test_feature_mode_pooled(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(feature_mode="pooled", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.stage2_ is not None
+        assert clf.predict(X).shape == (20,)
+        
+        interval_features = clf.stage1_.transform(X)
+        pooled_features = clf.stage2_.transform(interval_features)
+        assert clf.n_features_in_ == pooled_features.shape[1]
+
+    def test_feature_mode_both(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(feature_mode="both", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.stage2_ is not None
+        assert clf.predict(X).shape == (20,)
+        
+        interval_features = clf.stage1_.transform(X)
+        pooled_features = clf.stage2_.transform(interval_features)
+        assert clf.n_features_in_ == interval_features.shape[1] + pooled_features.shape[1]
+
+    def test_feature_mode_invalid_raises(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(feature_mode="invalid_mode", n_estimators=5, random_state=0)
+        with pytest.raises(ValueError, match="feature_mode"):
+            clf.fit(X, y)
+
 
 # ---------------------------------------------------------------------------
 # Feature names
@@ -282,6 +320,20 @@ class TestBootstrap:
         clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, top_rank=2, importance_method="shap", n_estimators=5, random_state=0)
         clf.fit(X, y)
         assert clf.feature_indices_ is not None
+
+    def test_bootstrap_importance_method_fisher(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, top_rank=2, importance_method="fisher", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.feature_indices_ is not None
+        assert len(clf.feature_indices_) > 0
+
+    def test_bootstrap_importance_method_anova_f(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=2, top_rank=2, importance_method="anova-f", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        assert clf.feature_indices_ is not None
+        assert len(clf.feature_indices_) > 0
 
     def test_bootstrap_invalid_importance_method(self, small_dataset):
         X, y = small_dataset

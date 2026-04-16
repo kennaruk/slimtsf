@@ -89,7 +89,7 @@ print(scores.mean())
     │  For each (channel, feature) group,
     │  pool across windows: min / mean / max.
     │  Output: 2-D compact matrix  (n_cases, n_pooled_features)
-    │  *Note: These pooled features are concatenated with Stage 1 features.*
+    │  *Note: Stage 1 and Stage 2 outputs are configurable for downstream use via `feature_mode` (`"both"` concatenates them).*
     │
     ▼  Stage 3 — Bootstrap Feature Selection (Optional)
     │  Run multiple Random Forest passes to rank and select the top
@@ -113,10 +113,11 @@ print(scores.mean())
 | `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                                          |
 | `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features.                                                 |
 | `aggregations`      | `list[str] \| None`          | `("min","mean","max")`   | Pooling statistics across windows. Pass `None` to skip Stage 2.      |
+| `feature_mode`      | `str`                        | `"both"`                 | Features to pass downstream: `"both"`, `"interval"`, or `"pooled"`.  |
 | `bootstrap`         | `bool`                       | `False`                  | Run multi-pass feature selection before final RF.                    |
 | `bootstrap_run`     | `int`                        | `10`                     | Number of passes for feature ranking.                                |
 | `top_rank`          | `int`                        | `5`                      | Top features to select per pass.                                     |
-| `importance_method` | `str`                        | `"gini"`                 | Method for feature calculation: `"gini"`, `"permutation"`, `"shap"`. |
+| `importance_method` | `str`                        | `"gini"`                 | Method for feature calculation: `"gini"`, `"permutation"`, `"shap"`, `"fisher"`, `"anova-f"`. |
 | `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                                                  |
 | `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                                      |
 | `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                                                  |
@@ -186,6 +187,12 @@ cd slimtsf
 pip install -e ".[dev]"
 pytest -v
 ```
+
+### AI Collaboration & System Context
+
+SlimTSF ships with embedded AI context and directives to ensure robust Test-Driven Development (TDD). If you are using an AI coding assistant (like Antigravity or Cursor), it will automatically pick up the rules in the `.agents/` directory:
+- `.agents/skills/slimtsf_tdd_workflow/SKILL.md` — Enforces a strict Test-First -> Implement -> Re-test workflow.
+- `.agents/llm_context.md` — Provides an architectural system overview for agents.
 
 ---
 

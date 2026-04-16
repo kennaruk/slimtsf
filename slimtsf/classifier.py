@@ -59,6 +59,13 @@ class SlimTSFClassifier:
         Statistics to pool across the window dimension for each
         (channel, feature) group.  Supported: ``"min"``, ``"mean"``, ``"max"``.
 
+    # --- Feature Configuration ---
+    feature_mode : {"both", "interval", "pooled"}, default "both"
+        Determines which features are passed downstream.
+        If ``"both"``, interval features and pooled features are concatenated.
+        If ``"interval"``, Stage 2 pooling is skipped and only raw interval features are passed.
+        If ``"pooled"``, interval features are pooled in Stage 2 and then discarded.
+
     # --- Stage 3 (Bootstrap Selection) ---
     bootstrap : bool, default False
         Whether to perform bootstrap feature selection before final training.
@@ -66,8 +73,9 @@ class SlimTSFClassifier:
         Number of bootstrap iterations to run for feature ranking.
     top_rank : int, default 5
         Number of top features to select per bootstrap iteration for ranking.
-    importance_method : {"gini", "permutation", "shap"}, default "gini"
+    importance_method : {"gini", "permutation", "shap", "fisher", "anova-f"}, default "gini"
         Method to calculate feature importance during the bootstrap phase.
+        Note: ``"fisher"`` and ``"anova-f"`` use the exact same calculation.
 
     # --- Stage 4 (Random Forest) ---
     n_estimators : int, default 200
@@ -129,6 +137,7 @@ class SlimTSFClassifier:
         ),
         # Stage 2
         aggregations: Sequence[str] = ("min", "mean", "max"),
+        feature_mode: str = "both",
         # Stage 3 (Bootstrap)
         bootstrap: bool = False,
         bootstrap_run: int = 10,
@@ -148,6 +157,7 @@ class SlimTSFClassifier:
         self.window_step_ratio = window_step_ratio
         self.feature_functions = feature_functions
         self.aggregations = aggregations
+        self.feature_mode = feature_mode
         self.bootstrap = bootstrap
         self.bootstrap_run = bootstrap_run
         self.top_rank = top_rank
@@ -188,6 +198,9 @@ class SlimTSFClassifier:
         self
         """
         self._validate_X(X)
+        if self.feature_mode not in ("interval", "pooled", "both"):
+            raise ValueError(f"Unknown feature_mode: {self.feature_mode}")
+        
         y = np.asarray(y)
         self.classes_ = np.unique(y)
 
@@ -202,8 +215,10 @@ class SlimTSFClassifier:
         interval_features = self.stage1_.fit_transform(X)
 
         # Stage 2 — stats pooling
-        if self.aggregations is None or len(self.aggregations) == 0:
+        if self.feature_mode == "interval" or self.aggregations is None or len(self.aggregations) == 0:
             self.stage2_ = None
+            if self.feature_mode == "pooled":
+                raise ValueError("Cannot use feature_mode='pooled' without providing aggregations.")
             stage1_2_features = interval_features
         else:
             self.stage2_ = IntervalStatsPoolingTransformer(aggregations=self.aggregations)
@@ -211,7 +226,10 @@ class SlimTSFClassifier:
                 interval_features,
                 feature_metadata=self.stage1_.feature_metadata_,
             )
-            stage1_2_features = np.hstack((interval_features, pooled_features))
+            if self.feature_mode == "pooled":
+                stage1_2_features = pooled_features
+            else:
+                stage1_2_features = np.hstack((interval_features, pooled_features))
 
         # Stage 3 — Bootstrap Selection (Optional)
         if self.bootstrap:
@@ -282,7 +300,10 @@ class SlimTSFClassifier:
         names_stage1 = self.stage1_.get_feature_names_out()
         if self.stage2_ is not None:
             names_stage2 = self.stage2_.get_feature_names_out()
-            names = np.array(names_stage1 + names_stage2)
+            if self.feature_mode == "pooled":
+                names = np.array(names_stage2)
+            else:
+                names = np.array(names_stage1 + names_stage2)
         else:
             names = np.array(names_stage1)
         
@@ -305,15 +326,15 @@ class SlimTSFClassifier:
     def _fit_bootstrap(self, pooled_features: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
         Identify top stable features by running multiple RF passes.
-        Directly refactored from v0's _fit_bootstrap.
+        Identifies top stable features by running multiple Random Forest passes over the pooled features.
         """
         n_features = pooled_features.shape[1]
         top_features_all_runs = []
 
         # Multi-pass ranking
         for i in range(self.bootstrap_run):
-            # Use same RF config as final model (except possibly n_estimators if v0 optimized it)
-            # v0 uses a fresh RF each time
+            # Use consistent RF configuration for bootstrap passes
+            # Initialize a fresh Random Forest for each bootstrap pass to ensure independent evaluation
             clf = RandomForestClassifier(
                 n_estimators=self.n_estimators,
                 max_depth=self.max_depth,
@@ -347,6 +368,13 @@ class SlimTSFClassifier:
                     importances = np.abs(shap_values).mean(axis=0).mean(axis=1)
                 else:
                     importances = np.abs(shap_values).mean(axis=0)
+            elif self.importance_method in ("fisher", "anova-f"):
+                from sklearn.feature_selection import f_classif
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    f_values, _ = f_classif(pooled_features, y)
+                importances = np.nan_to_num(f_values, nan=0.0)
             else:
                 raise ValueError(f"Unknown importance_method: {self.importance_method}")
             
@@ -359,7 +387,7 @@ class SlimTSFClassifier:
         # Frequency count across passes
         counts = collections.Counter(top_features_all_runs)
         
-        # Rule of thumb from v0: select Top log2(N) features
+        # Rule of thumb: select a logarithmic number of total features to prevent overfitting
         n_to_select = math.ceil(math.log2(n_features)) if n_features > 0 else 0
         
         selected = [idx for idx, _count in counts.most_common(n_to_select)]
@@ -376,7 +404,10 @@ class SlimTSFClassifier:
         interval_features = self.stage1_.transform(X)
         if self.stage2_ is not None:
             pooled_features = self.stage2_.transform(interval_features)
-            stage1_2_features = np.hstack((interval_features, pooled_features))
+            if self.feature_mode == "pooled":
+                stage1_2_features = pooled_features
+            else:
+                stage1_2_features = np.hstack((interval_features, pooled_features))
         else:
             stage1_2_features = interval_features
         
