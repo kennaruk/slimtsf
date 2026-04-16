@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.1 (2026-04-16)
+
+### Bug Fixes
+
+- Optimize bootstrap logic
+  ([`1c81f39`](https://github.com/kennaruk/slimtsf/commit/1c81f399a3dbd331427dc72c9c166f759509d86d))
+
+
 ## v1.3.0 (2026-04-16)
 
 ### Features
