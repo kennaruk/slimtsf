@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.3.2 (2026-04-20)
+
+### Bug Fixes
+
+- **Bottleneck**: Enhance bottleneck of CPU utilization at bootstrapping step, add `verbose` support
+  for debugging purpose
+  ([`a0a6ea6`](https://github.com/kennaruk/slimtsf/commit/a0a6ea6804e26191dd9161c85548d01576aa0bcd))
+
+
 ## v1.3.1 (2026-04-16)
 
 ### Bug Fixes
