@@ -123,6 +123,8 @@ print(scores.mean())
 | `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                                                  |
 | `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                                                |
 | `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).                              |
+| `number_of_jobs`    | `int`                        | `1`                      | Parallel workers for interval computation in Stage 1.                |
+| `verbose`           | `int\|bool`                  | `False`                  | Controls pipeline execution verbosity output logs.                   |
 
 **Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()`
 

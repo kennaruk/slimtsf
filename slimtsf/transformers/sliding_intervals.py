@@ -192,6 +192,8 @@ class SlidingWindowIntervalTransformer:
         Number of parallel workers for interval computation (joblib). Use -1 for all CPUs.
     parallel_backend : Optional[str], default=None
         Joblib backend name (e.g., "loky", "threading"). If None, joblib chooses a sensible default.
+    verbose : int or bool, default=False
+        Controls the verbosity when evaluating segments.
 
     Notes
     -----
@@ -213,6 +215,7 @@ class SlidingWindowIntervalTransformer:
         feature_functions: Optional[Sequence[Union[str, FeatureFunction]]] = ("mean", "std", "slope"),
         number_of_jobs: int = 1,
         parallel_backend: Optional[str] = None,
+        verbose: Union[int, bool] = False,
     ) -> None:
         # Validate and store parameters
         if window_step_ratio <= 0.0 or window_step_ratio > 1.0:
@@ -222,6 +225,7 @@ class SlidingWindowIntervalTransformer:
         self.window_step_ratio = float(window_step_ratio)
         self.number_of_jobs = int(number_of_jobs)
         self.parallel_backend = parallel_backend
+        self.verbose = verbose
 
         # Resolve feature functions
         if feature_functions is None:
@@ -325,7 +329,7 @@ class SlidingWindowIntervalTransformer:
             feature_blocks = [compute_features_for_interval(interval) for interval in self.interval_list_]
         else:
             # Parallel over intervals (the order of self.interval_list_ is preserved by joblib)
-            feature_blocks = Parallel(n_jobs=self.number_of_jobs, backend=self.parallel_backend)(
+            feature_blocks = Parallel(n_jobs=self.number_of_jobs, backend=self.parallel_backend, verbose=self.verbose)(
                 delayed(compute_features_for_interval)(interval) for interval in self.interval_list_
             )
 

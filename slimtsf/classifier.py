@@ -96,6 +96,8 @@ class SlimTSFClassifier:
         Number of parallel workers for interval computation in Stage 1.
     parallel_backend : str or None, default None
         Joblib backend for Stage 1 (e.g. ``"loky"``, ``"threading"``).
+    verbose : int or bool, default False
+        Controls the verbosity of pipeline execution and logs stage completion times.
 
     Attributes
     ----------
@@ -152,6 +154,7 @@ class SlimTSFClassifier:
         # Stage 1 parallelism
         number_of_jobs: int = 1,
         parallel_backend: Optional[str] = None,
+        verbose: Union[int, bool] = False,
     ) -> None:
         self.window_sizes = window_sizes
         self.window_step_ratio = window_step_ratio
@@ -169,6 +172,7 @@ class SlimTSFClassifier:
         self.n_jobs = n_jobs
         self.number_of_jobs = number_of_jobs
         self.parallel_backend = parallel_backend
+        self.verbose = verbose
 
         # Fitted state — set by fit()
         self.stage1_: Optional[SlidingWindowIntervalTransformer] = None
@@ -205,16 +209,21 @@ class SlimTSFClassifier:
         self.classes_ = np.unique(y)
 
         # Stage 1 — sliding-window feature extraction
+        if self.verbose:
+            print("[SlimTSF] Starting Stage 1: Sliding Window feature extraction...")
         self.stage1_ = SlidingWindowIntervalTransformer(
             window_sizes=self.window_sizes,
             window_step_ratio=self.window_step_ratio,
             feature_functions=self.feature_functions,
             number_of_jobs=self.number_of_jobs,
             parallel_backend=self.parallel_backend,
+            verbose=self.verbose,
         )
         interval_features = self.stage1_.fit_transform(X)
 
         # Stage 2 — stats pooling
+        if self.verbose:
+            print("[SlimTSF] Starting Stage 2: Interval Stats Pooling...")
         if self.feature_mode == "interval" or self.aggregations is None or len(self.aggregations) == 0:
             self.stage2_ = None
             if self.feature_mode == "pooled":
@@ -233,20 +242,28 @@ class SlimTSFClassifier:
 
         # Stage 3 — Bootstrap Selection (Optional)
         if self.bootstrap:
+            if self.verbose:
+                print(f"[SlimTSF] Starting Stage 3: Bootstrap Feature Selection ({self.importance_method})...")
             selected_features = self._fit_bootstrap(stage1_2_features, y)
         else:
             selected_features = stage1_2_features
             self.feature_indices_ = None
 
         self.n_features_in_ = selected_features.shape[1]
+        
+        if self.bootstrap and self.verbose:
+            print(f"[SlimTSF] Stage 3 Complete: Reduced feature matrix from {stage1_2_features.shape[1]} down to {self.n_features_in_} features.")
 
         # Stage 4 — final random forest
+        if self.verbose:
+            print("[SlimTSF] Starting Stage 4: Random Forest Classifier fitting...")
         self.stage3_ = RandomForestClassifier(
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
             class_weight=self.class_weight,
             random_state=self.random_state,
             n_jobs=self.n_jobs,
+            verbose=self.verbose,
         )
         self.stage3_.fit(selected_features, y)
 
@@ -344,20 +361,27 @@ class SlimTSFClassifier:
             sorted_idx = np.argsort(importances)[::-1]
             selected = sorted_idx[:n_to_select]
             self.feature_indices_ = np.sort(np.array(selected, dtype=int))
+            if self.verbose:
+                print(f"[SlimTSF] Univariate {self.importance_method}: Selected features -> {self.feature_indices_}")
             return pooled_features[:, self.feature_indices_]
 
         # 2. Ensemble Tree-based Bootstrap (Execute Parallel)
+        import joblib
         from joblib import Parallel, delayed
+        
+        effective_n_jobs = joblib.cpu_count() if self.n_jobs == -1 else self.n_jobs
+        outer_jobs = min(self.bootstrap_run, effective_n_jobs)
+        inner_jobs = max(1, effective_n_jobs // outer_jobs)
 
         def _run_single_bootstrap(pass_idx: int) -> list[int]:
             # Initialize a fresh Random Forest for each bootstrap pass
-            # We strictly enforce n_jobs=1 internally to prevent nested heavy-lifting oversubscription threading crashes
+            # Dynamically balance n_jobs preventing oversubscription while utilizing all hardware
             clf = RandomForestClassifier(
                 n_estimators=self.n_estimators,
                 max_depth=self.max_depth,
                 class_weight=self.class_weight,
                 random_state=self.random_state if self.random_state is None else self.random_state + pass_idx,
-                n_jobs=1,
+                n_jobs=inner_jobs,
             )
             clf.fit(pooled_features, y)
             
@@ -369,7 +393,7 @@ class SlimTSFClassifier:
                     clf, pooled_features, y, 
                     n_repeats=3, 
                     random_state=self.random_state if self.random_state is None else self.random_state + pass_idx,
-                    n_jobs=1
+                    n_jobs=inner_jobs
                 )
                 importances = result.importances_mean
             elif self.importance_method == "shap":
@@ -391,7 +415,7 @@ class SlimTSFClassifier:
             return sorted_idx[:self.top_rank].tolist()
 
         # Joblib parallelism across entire bootstrapped passes simultaneously
-        results = Parallel(n_jobs=self.n_jobs)(
+        results = Parallel(n_jobs=outer_jobs, verbose=self.verbose)(
             delayed(_run_single_bootstrap)(i) for i in range(self.bootstrap_run)
         )
         
@@ -406,6 +430,9 @@ class SlimTSFClassifier:
         
         # Sort indices to keep feature order predictable
         self.feature_indices_ = np.sort(np.array(selected, dtype=int))
+        
+        if self.verbose:
+            print(f"[SlimTSF] Selected {len(selected)} stable features from ensemble frequency counting.")
         
         return pooled_features[:, self.feature_indices_]
 
