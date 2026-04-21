@@ -101,6 +101,26 @@ def test_two_channels_two_windows_mean_sum():
     assert features.shape == expected.shape, f"Output shape {features.shape}, expected {expected.shape}"
     assert_array_almost_equal(features, expected)
 
+def test_parallel_multi_core_serialization():
+    # Test that multi-core execution exactly matches single-core deterministically
+    # and that objects serialize safely across the joblib process boundary
+    np.random.seed(42)
+    X = np.random.randn(5, 2, 50)  # 5 cases, 2 channels, 50 timepoints
+
+    sw_seq = SlidingWindowIntervalTransformer(
+        window_sizes=[25, 10], window_step_ratio=0.5, 
+        feature_functions=["mean", "std", "slope"], number_of_jobs=1
+    )
+    features_seq = sw_seq.fit_transform(X)
+
+    sw_par = SlidingWindowIntervalTransformer(
+        window_sizes=[25, 10], window_step_ratio=0.5, 
+        feature_functions=["mean", "std", "slope"], number_of_jobs=3
+    )
+    features_par = sw_par.fit_transform(X)
+
+    assert_array_almost_equal(features_seq, features_par)
+
 
 class TestFeatureFunction:
     
