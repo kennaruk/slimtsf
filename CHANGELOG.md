@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.3 (2026-04-21)
+
+### Bug Fixes
+
+- **Closure bottleneck**: Improve performance of multi cores
+  ([`cd560b6`](https://github.com/kennaruk/slimtsf/commit/cd560b680b3f5c368f1eac7dd079651d8191535c))
+
+
 ## v1.3.2 (2026-04-20)
 
 ### Bug Fixes
