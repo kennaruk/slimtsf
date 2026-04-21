@@ -160,6 +160,15 @@ def built_in_feature_functions(names: Sequence[str]) -> List[FeatureFunction]:
     return functions
 
 
+def _compute_interval(interval_tuple: Tuple[int, int, int, int], 
+                      input_series: np.ndarray, 
+                      feature_functions: List[FeatureFunction]) -> np.ndarray:
+    """Module-level deterministic worker to avoid joblib closure leak."""
+    channel_index, start_index, end_index, window_size = interval_tuple
+    segments = input_series[:, channel_index, start_index:end_index]  # [N, window_size]
+    feature_columns = [f.function(segments) for f in feature_functions]
+    return np.vstack(feature_columns).T
+
 # ---------------------------- Transformer Class ----------------------------
 
 class SlidingWindowIntervalTransformer:
@@ -315,22 +324,18 @@ class SlidingWindowIntervalTransformer:
             raise RuntimeError("Transformer must be fitted before calling transform().")
         number_of_cases = input_series.shape[0]
 
-        # Helper to compute features for a single interval across all cases.
-        def compute_features_for_interval(interval_tuple: Tuple[int, int, int, int]) -> np.ndarray:
-            channel_index, start_index, end_index, window_size = interval_tuple
-            segments = input_series[:, channel_index, start_index:end_index]  # [N, window_size]
-            # Compute each feature function's output for this interval
-            feature_columns = [feature_function.function(segments) for feature_function in self.feature_functions]
-            interval_feature_block = np.vstack(feature_columns).T  # [N, number_of_feature_functions]
-            return interval_feature_block
-
+        # Pre-bind the feature functions list to avoid serializing `self`
+        funcs = self.feature_functions
+        
         if self.number_of_jobs == 1:
             # Deterministic single-thread path
-            feature_blocks = [compute_features_for_interval(interval) for interval in self.interval_list_]
+            feature_blocks = [_compute_interval(interval, input_series, funcs) for interval in self.interval_list_]
         else:
             # Parallel over intervals (the order of self.interval_list_ is preserved by joblib)
+            # Passing `input_series` explicitly allows joblib's auto-memmap to intercept it securely,
+            # avoiding devastating IPC closure serialization penalty.
             feature_blocks = Parallel(n_jobs=self.number_of_jobs, backend=self.parallel_backend, verbose=self.verbose)(
-                delayed(compute_features_for_interval)(interval) for interval in self.interval_list_
+                delayed(_compute_interval)(interval, input_series, funcs) for interval in self.interval_list_
             )
 
         # Concatenate horizontally in the same deterministic order the intervals were enumerated
