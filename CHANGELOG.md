@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.1 (2026-04-24)
+
+### Bug Fixes
+
+- **get_feature_selection_frequencies**: Fix logic supporting
+  ([`bed0deb`](https://github.com/kennaruk/slimtsf/commit/bed0deba0dcfe3d9d4547a2096507a0bab0b7295))
+
+
 ## v1.4.0 (2026-04-24)
 
 ### Chores
