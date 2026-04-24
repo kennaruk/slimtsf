@@ -126,9 +126,9 @@ print(scores.mean())
 | `number_of_jobs`    | `int`                        | `1`                      | Parallel workers for interval computation in Stage 1.                                         |
 | `verbose`           | `int\|bool`                  | `False`                  | Controls pipeline execution verbosity output logs.                                            |
 
-**Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()` · `get_bootstrap_feature_frequencies()`
+**Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()` · `get_feature_selection_frequencies()`
 
-**Fitted attributes:** `stage1_` · `stage2_` · `stage3_` · `classes_` · `n_features_in_` · `bootstrap_counts_`
+**Fitted attributes:** `stage1_` · `stage2_` · `stage3_` · `classes_` · `n_features_in_` · `feature_selection_counts_`
 
 ---
 

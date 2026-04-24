@@ -341,24 +341,35 @@ class TestBootstrap:
         with pytest.raises(ValueError, match="Unknown importance_method"):
             clf.fit(X, y)
 
-    def test_bootstrap_feature_frequencies(self, small_dataset):
+    def test_feature_selection_frequencies(self, small_dataset):
         X, y = small_dataset
         clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=3, top_rank=2, n_estimators=5, random_state=0)
         clf.fit(X, y)
         
-        freq = clf.get_bootstrap_feature_frequencies()
+        freq = clf.get_feature_selection_frequencies()
         assert isinstance(freq, dict)
         assert len(freq) > 0
-        # Check that values are integers
+        # Check that values are integers (from ensemble counting)
         assert all(isinstance(v, int) for v in freq.values())
         # The sum of all counts should be exactly top_rank * bootstrap_run = 2 * 3 = 6
         assert sum(freq.values()) == 6
+
+    def test_feature_selection_frequencies_fisher(self, small_dataset):
+        X, y = small_dataset
+        clf = SlimTSFClassifier(bootstrap=True, importance_method="fisher", n_estimators=5, random_state=0)
+        clf.fit(X, y)
+        
+        freq = clf.get_feature_selection_frequencies()
+        assert isinstance(freq, dict)
+        assert len(freq) > 0
+        # Fisher returns F-scores which are floats
+        assert all(isinstance(v, float) for v in freq.values())
         
         # Check that asking for freq without bootstrap raises an error
         clf_no = SlimTSFClassifier(bootstrap=False, n_estimators=5, random_state=0)
         clf_no.fit(X, y)
         with pytest.raises(RuntimeError, match="Bootstrap feature selection was not enabled"):
-            clf_no.get_bootstrap_feature_frequencies()
+            clf_no.get_feature_selection_frequencies()
 
 
 # ---------------------------------------------------------------------------

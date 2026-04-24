@@ -181,7 +181,7 @@ class SlimTSFClassifier:
         self.feature_indices_: Optional[np.ndarray] = None
         self.classes_: Optional[np.ndarray] = None
         self.n_features_in_: Optional[int] = None
-        self.bootstrap_counts_: Optional[collections.Counter] = None
+        self.feature_selection_counts_: Optional[collections.Counter] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -329,7 +329,7 @@ class SlimTSFClassifier:
             names = names[self.feature_indices_]
         return names.tolist()
 
-    def get_bootstrap_feature_frequencies(self) -> dict[str, int]:
+    def get_feature_selection_frequencies(self) -> dict[str, Union[int, float]]:
         """
         Return the frequency of selection for each feature across all bootstrap passes.
         
@@ -337,12 +337,12 @@ class SlimTSFClassifier:
         -------
         dict
             Mapping from feature name to the number of times it was selected in the top-k
-            during the bootstrap feature selection phase.
+            during the feature selection phase.
         """
         self._check_is_fitted()
         if not self.bootstrap:
             raise RuntimeError("Bootstrap feature selection was not enabled during fit.")
-        if self.bootstrap_counts_ is None:
+        if self.feature_selection_counts_ is None:
             return {}
 
         # Reconstruct all feature names (before selection)
@@ -356,7 +356,7 @@ class SlimTSFClassifier:
         else:
             all_names = np.array(names_stage1)
 
-        return {all_names[idx]: count for idx, count in self.bootstrap_counts_.items()}
+        return {all_names[idx]: count for idx, count in self.feature_selection_counts_.items()}
 
     def __repr__(self) -> str:
         params = (
@@ -391,6 +391,7 @@ class SlimTSFClassifier:
             sorted_idx = np.argsort(importances)[::-1]
             selected = sorted_idx[:n_to_select]
             self.feature_indices_ = np.sort(np.array(selected, dtype=int))
+            self.feature_selection_counts_ = collections.Counter({idx: float(importances[idx]) for idx in range(len(importances))})
             if self.verbose:
                 print(f"[SlimTSF] Univariate {self.importance_method}: Selected features -> {self.feature_indices_}")
             return pooled_features[:, self.feature_indices_]
@@ -455,7 +456,7 @@ class SlimTSFClassifier:
 
         # Frequency count across passes
         counts = collections.Counter(top_features_all_runs)
-        self.bootstrap_counts_ = counts
+        self.feature_selection_counts_ = counts
         
         selected = [idx for idx, _count in counts.most_common(n_to_select)]
         
