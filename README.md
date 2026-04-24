@@ -107,28 +107,28 @@ print(scores.mean())
 
 ### `SlimTSFClassifier`
 
-| Parameter           | Type                         | Default                  | Description                                                          |
-| ------------------- | ---------------------------- | ------------------------ | -------------------------------------------------------------------- |
-| `window_sizes`      | `list[int] \| None`          | `None`                   | Window sizes. Auto if `None` (`[T, T//2, …]`).                       |
-| `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                                          |
-| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features.                                                 |
-| `aggregations`      | `list[str] \| None`          | `("min","mean","max")`   | Pooling statistics across windows. Pass `None` to skip Stage 2.      |
-| `feature_mode`      | `str`                        | `"both"`                 | Features to pass downstream: `"both"`, `"interval"`, or `"pooled"`.  |
-| `bootstrap`         | `bool`                       | `False`                  | Run multi-pass feature selection before final RF.                    |
-| `bootstrap_run`     | `int`                        | `10`                     | Number of passes for feature ranking.                                |
-| `top_rank`          | `int`                        | `5`                      | Top features to select per pass.                                     |
+| Parameter           | Type                         | Default                  | Description                                                                                   |
+| ------------------- | ---------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
+| `window_sizes`      | `list[int] \| None`          | `None`                   | Window sizes. Auto if `None` (`[T, T//2, …]`).                                                |
+| `window_step_ratio` | `float`                      | `0.5`                    | Step = ratio × window size.                                                                   |
+| `feature_functions` | `list[str\|FeatureFunction]` | `("mean","std","slope")` | Per-window features.                                                                          |
+| `aggregations`      | `list[str] \| None`          | `("min","mean","max")`   | Pooling statistics across windows. Pass `None` to skip Stage 2.                               |
+| `feature_mode`      | `str`                        | `"both"`                 | Features to pass downstream: `"both"`, `"interval"`, or `"pooled"`.                           |
+| `bootstrap`         | `bool`                       | `False`                  | Run multi-pass feature selection before final RF.                                             |
+| `bootstrap_run`     | `int`                        | `10`                     | Number of passes for feature ranking.                                                         |
+| `top_rank`          | `int`                        | `5`                      | Top features to select per pass.                                                              |
 | `importance_method` | `str`                        | `"gini"`                 | Method for feature calculation: `"gini"`, `"permutation"`, `"shap"`, `"fisher"`, `"anova-f"`. |
-| `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                                                  |
-| `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                                      |
-| `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                                                  |
-| `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                                                |
-| `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).                              |
-| `number_of_jobs`    | `int`                        | `1`                      | Parallel workers for interval computation in Stage 1.                |
-| `verbose`           | `int\|bool`                  | `False`                  | Controls pipeline execution verbosity output logs.                   |
+| `n_estimators`      | `int`                        | `200`                    | Number of RF trees.                                                                           |
+| `max_depth`         | `int\|None`                  | `None`                   | Max tree depth.                                                                               |
+| `class_weight`      | `str\|dict\|None`            | `"balanced"`             | RF class weighting.                                                                           |
+| `random_state`      | `int\|None`                  | `None`                   | Reproducibility seed.                                                                         |
+| `n_jobs`            | `int`                        | `1`                      | Parallel jobs for RF (`-1` = all CPUs).                                                       |
+| `number_of_jobs`    | `int`                        | `1`                      | Parallel workers for interval computation in Stage 1.                                         |
+| `verbose`           | `int\|bool`                  | `False`                  | Controls pipeline execution verbosity output logs.                                            |
 
-**Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()`
+**Methods:** `fit(X, y)` · `predict(X)` · `predict_proba(X)` · `get_feature_names_out()` · `get_bootstrap_feature_frequencies()`
 
-**Fitted attributes:** `stage1_` · `stage2_` · `stage3_` · `classes_` · `n_features_in_`
+**Fitted attributes:** `stage1_` · `stage2_` · `stage3_` · `classes_` · `n_features_in_` · `bootstrap_counts_`
 
 ---
 
@@ -193,6 +193,7 @@ pytest -v
 ### AI Collaboration & System Context
 
 SlimTSF ships with embedded AI context and directives to ensure robust Test-Driven Development (TDD). If you are using an AI coding assistant (like Antigravity or Cursor), it will automatically pick up the rules in the `.agents/` directory:
+
 - `.agents/skills/slimtsf_tdd_workflow/SKILL.md` — Enforces a strict Test-First -> Implement -> Re-test workflow.
 - `.agents/llm_context.md` — Provides an architectural system overview for agents.
 

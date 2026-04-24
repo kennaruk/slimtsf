@@ -181,6 +181,7 @@ class SlimTSFClassifier:
         self.feature_indices_: Optional[np.ndarray] = None
         self.classes_: Optional[np.ndarray] = None
         self.n_features_in_: Optional[int] = None
+        self.bootstrap_counts_: Optional[collections.Counter] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -328,6 +329,35 @@ class SlimTSFClassifier:
             names = names[self.feature_indices_]
         return names.tolist()
 
+    def get_bootstrap_feature_frequencies(self) -> dict[str, int]:
+        """
+        Return the frequency of selection for each feature across all bootstrap passes.
+        
+        Returns
+        -------
+        dict
+            Mapping from feature name to the number of times it was selected in the top-k
+            during the bootstrap feature selection phase.
+        """
+        self._check_is_fitted()
+        if not self.bootstrap:
+            raise RuntimeError("Bootstrap feature selection was not enabled during fit.")
+        if self.bootstrap_counts_ is None:
+            return {}
+
+        # Reconstruct all feature names (before selection)
+        names_stage1 = self.stage1_.get_feature_names_out()
+        if self.stage2_ is not None:
+            names_stage2 = self.stage2_.get_feature_names_out()
+            if self.feature_mode == "pooled":
+                all_names = np.array(names_stage2)
+            else:
+                all_names = np.array(names_stage1 + names_stage2)
+        else:
+            all_names = np.array(names_stage1)
+
+        return {all_names[idx]: count for idx, count in self.bootstrap_counts_.items()}
+
     def __repr__(self) -> str:
         params = (
             f"bootstrap={self.bootstrap!r}, "
@@ -425,6 +455,7 @@ class SlimTSFClassifier:
 
         # Frequency count across passes
         counts = collections.Counter(top_features_all_runs)
+        self.bootstrap_counts_ = counts
         
         selected = [idx for idx, _count in counts.most_common(n_to_select)]
         
