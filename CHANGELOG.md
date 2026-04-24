@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-04-24)
+
+### Chores
+
+- Add tests for multi cores
+  ([`ffe6228`](https://github.com/kennaruk/slimtsf/commit/ffe6228a0c4ef1400c1b9e6ec582a44d90348b6d))
+
+### Features
+
+- **get_feature_names_out**: Add `get_feature_names_out` function
+  ([`cf4a4f6`](https://github.com/kennaruk/slimtsf/commit/cf4a4f680ec203e86f7f59aa6c9fc0a81422257b))
+
+
 ## v1.3.3 (2026-04-21)
 
 ### Bug Fixes
