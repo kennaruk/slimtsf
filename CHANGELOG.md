@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-04-29)
+
+### Features
+
+- Standardise bootstrap feature selection across all methods
+  ([`f992da4`](https://github.com/kennaruk/slimtsf/commit/f992da4987b1645de253bde77ec63d1547b3a609))
+
+
 ## v1.4.1 (2026-04-24)
 
 ### Bug Fixes
