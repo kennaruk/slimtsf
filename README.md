@@ -92,8 +92,8 @@ print(scores.mean())
     │  *Note: Stage 1 and Stage 2 outputs are configurable for downstream use via `feature_mode` (`"both"` concatenates them).*
     │
     ▼  Stage 3 — Bootstrap Feature Selection (Optional)
-    │  Run multiple Random Forest passes to rank and select the top
-    │  most stable features (log2 of total features).
+    │  Run multiple bootstrap resampling passes (using tree or statistical methods)
+    │  to rank and select the top most stable features by selection frequency count.
     │  Output: 2-D refined matrix  (n_cases, n_selected_features)
     │
     ▼  Stage 4 — RandomForestClassifier (scikit-learn)

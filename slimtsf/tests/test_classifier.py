@@ -356,14 +356,15 @@ class TestBootstrap:
 
     def test_feature_selection_frequencies_fisher(self, small_dataset):
         X, y = small_dataset
-        clf = SlimTSFClassifier(bootstrap=True, importance_method="fisher", n_estimators=5, random_state=0)
+        clf = SlimTSFClassifier(bootstrap=True, bootstrap_run=3, top_rank=2, importance_method="fisher", n_estimators=5, random_state=0)
         clf.fit(X, y)
         
         freq = clf.get_feature_selection_frequencies()
         assert isinstance(freq, dict)
         assert len(freq) > 0
-        # Fisher returns F-scores which are floats
-        assert all(isinstance(v, float) for v in freq.values())
+        # Fisher now returns integer counts from the bootstrap ensemble
+        assert all(isinstance(v, int) for v in freq.values())
+        assert sum(freq.values()) == 6
         
         # Check that asking for freq without bootstrap raises an error
         clf_no = SlimTSFClassifier(bootstrap=False, n_estimators=5, random_state=0)

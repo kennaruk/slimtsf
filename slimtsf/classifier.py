@@ -380,66 +380,68 @@ class SlimTSFClassifier:
             self.feature_indices_ = np.array([], dtype=int)
             return pooled_features[:, self.feature_indices_]
 
-        # 1. Univariate Statistical Selection (Skip Model Constraints)
-        if self.importance_method in ("fisher", "anova-f"):
-            from sklearn.feature_selection import f_classif
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                f_values, _ = f_classif(pooled_features, y)
-            importances = np.nan_to_num(f_values, nan=0.0)
-            sorted_idx = np.argsort(importances)[::-1]
-            selected = sorted_idx[:n_to_select]
-            self.feature_indices_ = np.sort(np.array(selected, dtype=int))
-            self.feature_selection_counts_ = collections.Counter({idx: float(importances[idx]) for idx in range(len(importances))})
-            if self.verbose:
-                print(f"[SlimTSF] Univariate {self.importance_method}: Selected features -> {self.feature_indices_}")
-            return pooled_features[:, self.feature_indices_]
-
-        # 2. Ensemble Tree-based Bootstrap (Execute Parallel)
+        # Ensemble Bootstrap (Execute Parallel)
         import joblib
         from joblib import Parallel, delayed
+        from sklearn.utils import resample
         
         effective_n_jobs = joblib.cpu_count() if self.n_jobs == -1 else self.n_jobs
         outer_jobs = min(self.bootstrap_run, effective_n_jobs)
         inner_jobs = max(1, effective_n_jobs // outer_jobs)
 
         def _run_single_bootstrap(pass_idx: int) -> list[int]:
-            # Initialize a fresh Random Forest for each bootstrap pass
-            # Dynamically balance n_jobs preventing oversubscription while utilizing all hardware
-            clf = RandomForestClassifier(
-                n_estimators=self.n_estimators,
-                max_depth=self.max_depth,
-                class_weight=self.class_weight,
-                random_state=self.random_state if self.random_state is None else self.random_state + pass_idx,
-                n_jobs=inner_jobs,
+            # Bootstrap resampling for all methods to generate stable selection counts
+            random_seed = self.random_state if self.random_state is None else self.random_state + pass_idx
+            X_res, y_res = resample(
+                pooled_features, y, 
+                replace=True, 
+                n_samples=pooled_features.shape[0], 
+                random_state=random_seed
             )
-            clf.fit(pooled_features, y)
-            
-            if self.importance_method == "gini":
-                importances = clf.feature_importances_
-            elif self.importance_method == "permutation":
-                from sklearn.inspection import permutation_importance
-                result = permutation_importance(
-                    clf, pooled_features, y, 
-                    n_repeats=3, 
-                    random_state=self.random_state if self.random_state is None else self.random_state + pass_idx,
-                    n_jobs=inner_jobs
-                )
-                importances = result.importances_mean
-            elif self.importance_method == "shap":
-                import shap
-                explainer = shap.TreeExplainer(clf)
-                shap_values = explainer.shap_values(pooled_features, check_additivity=False)
-                
-                if isinstance(shap_values, list):
-                    importances = np.mean([np.abs(sv).mean(axis=0) for sv in shap_values], axis=0)
-                elif len(shap_values.shape) == 3:
-                    importances = np.abs(shap_values).mean(axis=0).mean(axis=1)
-                else:
-                    importances = np.abs(shap_values).mean(axis=0)
+
+            if self.importance_method in ("fisher", "anova-f"):
+                from sklearn.feature_selection import f_classif
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    f_values, _ = f_classif(X_res, y_res)
+                importances = np.nan_to_num(f_values, nan=0.0)
             else:
-                raise ValueError(f"Unknown importance_method: {self.importance_method}")
+                # Initialize a fresh Random Forest for each bootstrap pass
+                # Dynamically balance n_jobs preventing oversubscription while utilizing all hardware
+                clf = RandomForestClassifier(
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    class_weight=self.class_weight,
+                    random_state=random_seed,
+                    n_jobs=inner_jobs,
+                )
+                clf.fit(X_res, y_res)
+                
+                if self.importance_method == "gini":
+                    importances = clf.feature_importances_
+                elif self.importance_method == "permutation":
+                    from sklearn.inspection import permutation_importance
+                    result = permutation_importance(
+                        clf, X_res, y_res, 
+                        n_repeats=3, 
+                        random_state=random_seed,
+                        n_jobs=inner_jobs
+                    )
+                    importances = result.importances_mean
+                elif self.importance_method == "shap":
+                    import shap
+                    explainer = shap.TreeExplainer(clf)
+                    shap_values = explainer.shap_values(X_res, check_additivity=False)
+                    
+                    if isinstance(shap_values, list):
+                        importances = np.mean([np.abs(sv).mean(axis=0) for sv in shap_values], axis=0)
+                    elif len(shap_values.shape) == 3:
+                        importances = np.abs(shap_values).mean(axis=0).mean(axis=1)
+                    else:
+                        importances = np.abs(shap_values).mean(axis=0)
+                else:
+                    raise ValueError(f"Unknown importance_method: {self.importance_method}")
             
             # Sort importances desc
             sorted_idx = np.argsort(importances)[::-1]
