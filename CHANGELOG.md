@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-09-15)
+
+### Documentation
+
+- Add CITATION.cff with author and ORCID metadata
+  ([`0ca3e44`](https://github.com/kennaruk/slimtsf/commit/0ca3e44abfd16558b4617f8160e479b1d01cf08b))
+
+### Features
+
+- **examples**: Add quickstart multivariate classification script and notebook
+  ([`0ea2f60`](https://github.com/kennaruk/slimtsf/commit/0ea2f600a1d8273921a04bff18214090f7bf40e2))
+
+
 ## v1.5.0 (2026-04-29)
 
 ### Features
