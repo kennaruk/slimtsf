@@ -4,6 +4,7 @@
 [![CI](https://github.com/kennaruk/slimtsf/actions/workflows/ci.yml/badge.svg)](https://github.com/kennaruk/slimtsf/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/1176562565.svg)](https://doi.org/10.5281/zenodo.22761482)
 
 A minimal, **scikit-learn–compatible** library for classifying multivariate time-series data using multi-scale sliding-window feature extraction.
 

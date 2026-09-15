@@ -7,8 +7,9 @@ authors:
     orcid: "https://orcid.org/0009-0003-0189-2653"
     affiliation: "California State University, Fullerton"
 title: "slimtsf: Sliding-Window Multivariate Time-Series Forest"
-version: 1.5.0
-date-released: "2026-04-29"
+version: 1.6.0
+doi: "10.5281/zenodo.22761482"
+date-released: "2026-09-15"
 url: "https://github.com/kennaruk/slimtsf"
 repository-code: "https://github.com/kennaruk/slimtsf"
 keywords:
