@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Wuttisasiwat"
+    given-names: "Nitipat"
+    alias: "Ken"
+    orcid: "https://orcid.org/0009-0003-0189-2653"
+    affiliation: "California State University, Fullerton"
+title: "slimtsf: Sliding-Window Multivariate Time-Series Forest"
+version: 1.5.0
+date-released: "2026-04-29"
+url: "https://github.com/kennaruk/slimtsf"
+repository-code: "https://github.com/kennaruk/slimtsf"
+keywords:
+  - "time-series"
+  - "machine-learning"
+  - "classification"
+  - "random-forest"
+  - "sliding-window"
+  - "multivariate"
+license: "MIT"
